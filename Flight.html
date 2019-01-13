@@ -1,0 +1,176 @@
+<!DOCTYPE HTML> 
+<html lang="en"> 
+<head>
+<title>Flight Simulator</title>
+<meta charset="utf-8"> 
+</head>
+
+    
+<script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexNormal;
+    attribute vec3 aVertexPosition;
+   
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform mat3 uNMatrix;
+    
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+    varying vec3 colorMap;
+    
+    void main(void) {
+        //Initialize vNormal, vPosition, and set gl_Position 
+        vec4 vertexPositionEye4 = uMVMatrix * vec4(aVertexPosition, 1.0);
+        vPosition = vertexPositionEye4.xyz / vertexPositionEye4.w;
+        vNormal = normalize(uNMatrix * aVertexNormal);
+        gl_Position = uPMatrix*uMVMatrix*vec4(aVertexPosition, 1.0);
+        
+        //Implement colormap related to the height of the vertex
+        if(aVertexPosition[2] < 0.2 && aVertexPosition[2] > 0.0){
+            colorMap = vec3(0.78, 1.0, 0.5); // Grass Green
+        }
+        
+        else if (aVertexPosition[2] < 0.0 && aVertexPosition[2] > -0.2){
+            colorMap = vec3(0.73, 1.0, 0.40); // Grass Green
+        }
+        
+        else if(aVertexPosition[2] < -0.2 && aVertexPosition[2] > -0.5){
+            colorMap = vec3(0.0, 0.412, 0.58); // sea blue
+        }
+    
+        else if (aVertexPosition[2] > 0.2){
+            colorMap = vec3(0.941, 0.941, 0.925); // snow white
+        }
+        
+        else {
+            colorMap = vec3(0.0, 0.412, 0.58); // sea blue
+        }
+        
+    }
+</script>
+  
+<script id="shader-fs" type="x-shader/x-fragment">
+    precision mediump float;
+    uniform vec3 uLightPosition;
+    uniform vec3 uAmbientLightColor;
+    uniform vec3 uDiffuseLightColor;
+    uniform vec3 uSpecularLightColor;
+    uniform vec3 uKAmbient;
+    uniform vec3 uKDiffuse;
+    uniform vec3 uKSpecular;
+    uniform float uShininess;
+    
+    uniform float fogDensity;
+    
+    
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+    varying vec3 colorMap; 
+    
+    
+    void main(void) {
+        vec4 fragColor;
+        float fogCoord;
+        vec4 fogColor;
+        float fogFactor;
+        
+        // Calculate the vector (l) to the light source
+        vec3 vectorToLightSource = normalize(uLightPosition - vPosition);
+        
+        // Calculate n dot l for diffuse lighting
+        float diffuseLightWeightning = max(dot(vNormal, vectorToLightSource), 0.0);   
+        
+        // The camera in eye coordinates is located in the origin and is pointing
+        // along the negative z-axis. Calculate viewVector (v) 
+        // in eye coordinates as:
+        // (0.0, 0.0, 0.0) - vertexPositionEye3
+        vec3 viewVectorEye = -normalize(vPosition);
+        
+        vec3 halfwayVector = normalize(vectorToLightSource + viewVectorEye);
+        
+        float ndoth = max(dot(vNormal, halfwayVector), 0.0);
+        
+        float specularLightWeightning = pow(ndoth, uShininess);
+        
+        //White Fog
+        fogColor = vec4(1.0, 1.0, 1.0, 1.0);
+        
+        //Distance from fragment to camera 
+        fogCoord = length(vPosition);
+        
+        const float LOG2 = 1.442695;
+        fogFactor = exp2(-fogDensity * fogDensity * fogCoord * fogCoord * LOG2);
+        fogFactor = clamp(fogFactor, 0.0, 1.0);
+        
+        //FragColor
+        fragColor = vec4(((uAmbientLightColor*uKAmbient)
+                + (uDiffuseLightColor*uKDiffuse*colorMap) * diffuseLightWeightning
+                + ((uSpecularLightColor*uKSpecular) * specularLightWeightning)),1.0);
+        
+        
+        gl_FragColor = mix(fogColor, fragColor, fogFactor);
+        
+    }
+</script>
+
+<script src="gl-matrix-min.js"></script> 
+<script src="webgl-utils.js"></script> 
+<script src="Terrain.js"></script>  
+<script src="HelloTerrain.js"></script>   
+<body onload="startup();">
+ <canvas id="myGLCanvas" width="800" height="800"></canvas>
+    <form id="input_form">
+        <fieldset>
+            <legend>Rendering Parameters</legend>
+         <input type="radio" name="primitive" id="wireframe" value="wireframe"> Wireframe
+         <input type="radio" name="primitive" id="polygon" id="polygon" value="polygon" checked> Polygon
+         <input type="radio" name="primitive" id="wirepoly" value="wirepoly" > Polygon with Edges  
+        </fieldset>
+    </form>
+    
+    <table>
+        <tr>
+            <th>Input</th>
+            <th>Function</th>
+        </tr>
+        <tr>
+            <td>F Key</td>
+            <td>Turn on Fog :)</td>
+        </tr>
+        <tr>
+            <td>G Key</td>
+            <td>Turn off Fog :(</td>
+        </tr>
+        <tr>
+            <td>Left Arrow Key</td>
+            <td>Roll Left</td>
+        </tr>
+        <tr>
+            <td>Right Arrow Key</td>
+            <td>Roll Right</td>
+        </tr>
+        <tr>
+            <td>Up Arrow Key</td>
+            <td>Pitch Up</td>
+        </tr>
+        <tr>
+            <td>Down Arrow Key</td>
+            <td>Pitch Down</td>
+        </tr>
+        <tr>
+            <td>Plus(+) Key</td>
+            <td>Accelerate</td>
+        </tr>
+        <tr>
+            <td>Minus(-) Key</td>
+            <td>Decelerate</td>
+        </tr>
+        <tr>
+            <td>Esc Key</td>
+            <td>Start a New Round!</td>
+        </tr>
+    </table>
+    
+</body>
+
+</html>
